@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: maven-build
+spec:
+  containers:
+  - name: maven
+    image: maven:3.9-eclipse-temurin-17
+    command:
+    - cat
+    tty: true
+    workingDir: /home/jenkins/agent
+    env:
+    - name: MAVEN_OPTS
+      value: "-Xmx1024m -XX:MaxPermSize=256m"
+    - name: MAVEN_CONFIG
+      value: "/root/.m2"
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+    volumeMounts:
+    - name: maven-repo
+      mountPath: /root/.m2
+    - name: workspace
+      mountPath: /home/jenkins/agent
+    - name: trivy-cache
+      mountPath: /root/.cache/trivy
+  - name: trivy
+    image: aquasec/trivy:latest
+    command:
+    - cat
+    tty: true
+    workingDir: /home/jenkins/agent
+    env:
+    - name: TRIVY_CACHE_DIR
+      value: "/root/.cache/trivy"
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "200m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+    volumeMounts:
+    - name: workspace
+      mountPath: /home/jenkins/agent
+    - name: trivy-cache
+      mountPath: /root/.cache/trivy
+  volumes:
+  - name: maven-repo
+    emptyDir: {}
+  - name: workspace
+    emptyDir: {}
+  - name: trivy-cache
+    emptyDir: {}
+  restartPolicy: Never
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
