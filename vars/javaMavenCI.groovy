@@ -5,7 +5,8 @@ def call(Map cfg) {
     }
 
     // 分支策略判断
-    def branchName = env.BRANCH_NAME ?: 'unknown'
+    def defaultBranch = env.BRANCH_NAME ?: 'main'
+    def branchName = params.BRANCH ?: defaultBranch
     def isFeatureBranch = branchName ==~ /feature\/.*/
     def isReleaseBranch = branchName ==~ /release\/.*/
     def isMainBranch = branchName in ['main', 'master', 'develop']
@@ -28,18 +29,20 @@ def call(Map cfg) {
         }
 
         parameters {
+            choice(name: 'BRANCH', choices: ['main', 'develop', 'master'], description: '选择要构建的分支')
             booleanParam(name: 'ENABLE_TEST', defaultValue: enableTest, description: '是否执行单元测试')
             booleanParam(name: 'ENABLE_SCAN', defaultValue: enableScan, description: '是否执行代码扫描')
             booleanParam(name: 'ENABLE_DEP_SCAN', defaultValue: enableDepScan, description: '是否执行依赖扫描')
             booleanParam(name: 'ENABLE_ARCHIVE', defaultValue: enableArchive, description: '是否归档构建产物')
             string(name: 'MVN_OPTS', defaultValue: cfg.mvnOpts ?: '', description: 'Maven 额外选项')
             string(name: 'BUILD_VERSION', defaultValue: cfg.buildVersion ?: org.ecochain.ci.Utils.getBuildVersion(), description: '构建版本号')
+            string(name: 'CUSTOM_BRANCH', defaultValue: '', description: '自定义分支名称（如果不在下拉列表中，请在此输入）')
         }
 
         environment {
             MAVEN_OPTS = "${params.MVN_OPTS}"
             BUILD_VERSION = "${params.BUILD_VERSION}"
-            BRANCH_NAME = "${branchName}"
+            BRANCH_NAME = "${params.CUSTOM_BRANCH ? params.CUSTOM_BRANCH : params.BRANCH}"
         }
 
         options {
@@ -75,8 +78,14 @@ def call(Map cfg) {
                     script {
                         org.ecochain.ci.Utils.printSeparator('Checkout')
                     }
-                    checkout scm
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/${env.BRANCH_NAME}"]],
+                        userRemoteConfigs: [[url: scm.userRemoteConfigs[0].url]]
+                    ])
                     script {
+                        buildInfo = org.ecochain.ci.Utils.getBuildInfo()
+                        echo "当前分支: ${env.BRANCH_NAME}"
                         echo "当前提交: ${buildInfo.commit}"
                         echo "提交信息: ${buildInfo.message}"
                     }
