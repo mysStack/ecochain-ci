@@ -21,29 +21,34 @@ def call(Map cfg) {
     // 获取构建信息
     def buildInfo = org.ecochain.ci.Utils.getBuildInfo()
 
-    pipeline {
-        agent {
-            kubernetes {
-                yaml libraryResource("pod/maven.yaml")
-            }
-        }
+    properties([
+    parameters([
+        gitParameter(branchFilter: 'origin/(.*)', 
+                     defaultValue: defaultBranch, 
+                     name: 'BRANCH',
+                     type: 'PT_BRANCH',
+                     description: '选择要构建的分支'),
+        booleanParam(name: 'ENABLE_TEST', defaultValue: enableTest, description: '是否执行单元测试'),
+        booleanParam(name: 'ENABLE_SCAN', defaultValue: enableScan, description: '是否执行代码扫描'),
+        booleanParam(name: 'ENABLE_DEP_SCAN', defaultValue: enableDepScan, description: '是否执行依赖扫描'),
+        booleanParam(name: 'ENABLE_ARCHIVE', defaultValue: enableArchive, description: '是否归档构建产物'),
+        string(name: 'MVN_OPTS', defaultValue: cfg.mvnOpts ?: '', description: 'Maven 额外选项'),
+        string(name: 'BUILD_VERSION', defaultValue: cfg.buildVersion ?: org.ecochain.ci.Utils.getBuildVersion(), description: '构建版本号')
+    ])
+])
 
-        parameters {
-            choice(name: 'BRANCH', choices: ['main', 'develop', 'master'], description: '选择要构建的分支')
-            booleanParam(name: 'ENABLE_TEST', defaultValue: enableTest, description: '是否执行单元测试')
-            booleanParam(name: 'ENABLE_SCAN', defaultValue: enableScan, description: '是否执行代码扫描')
-            booleanParam(name: 'ENABLE_DEP_SCAN', defaultValue: enableDepScan, description: '是否执行依赖扫描')
-            booleanParam(name: 'ENABLE_ARCHIVE', defaultValue: enableArchive, description: '是否归档构建产物')
-            string(name: 'MVN_OPTS', defaultValue: cfg.mvnOpts ?: '', description: 'Maven 额外选项')
-            string(name: 'BUILD_VERSION', defaultValue: cfg.buildVersion ?: org.ecochain.ci.Utils.getBuildVersion(), description: '构建版本号')
-            string(name: 'CUSTOM_BRANCH', defaultValue: '', description: '自定义分支名称（如果不在下拉列表中，请在此输入）')
+pipeline {
+    agent {
+        kubernetes {
+            yaml libraryResource("pod/maven.yaml")
         }
+    }
 
-        environment {
-            MAVEN_OPTS = "${params.MVN_OPTS}"
-            BUILD_VERSION = "${params.BUILD_VERSION}"
-            BRANCH_NAME = "${params.CUSTOM_BRANCH ? params.CUSTOM_BRANCH : params.BRANCH}"
-        }
+    environment {
+        MAVEN_OPTS = "${params.MVN_OPTS}"
+        BUILD_VERSION = "${params.BUILD_VERSION}"
+        BRANCH_NAME = "${params.BRANCH}"
+    }
 
         options {
             timeout(time: 2, unit: 'HOURS')
