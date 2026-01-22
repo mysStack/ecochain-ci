@@ -41,11 +41,22 @@ ecochain-ci/
    - Default Version: `main`（或你的默认分支）
    - Retrieval method: 选择 Modern SCM 并配置你的 Git 仓库
 
-### 2. 准备 Kubernetes 环境
+### 2. 所需插件
+
+在使用本共享库之前，请确保 Jenkins 已安装以下插件：
+
+- **Kubernetes Plugin**：用于在 Kubernetes 集群中动态创建构建代理
+- **Pipeline Utility Steps**：提供额外的流水线步骤工具
+- **SonarQube Scanner**：用于集成 SonarQube 代码质量检查
+- **Workspace Cleanup Plugin**：用于清理构建工作空间（推荐）
+
+您可以通过 Jenkins → 系统管理 → 插件管理 来安装这些插件。
+
+### 3. 准备 Kubernetes 环境
 
 确保 Jenkins 已配置好 Kubernetes 插件，并且有可用的 Kubernetes 集群。
 
-### 3. 配置 SonarQube（可选）
+### 4. 配置 SonarQube（可选）
 
 如需使用代码扫描功能，请先配置好 SonarQube 服务器。
 
