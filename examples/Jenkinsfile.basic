@@ -1,0 +1,16 @@
+// 基础配置示例
+// 适用于简单的构建场景，只包含基本的编译和测试功能
+
+@Library('ecochain-ci') _
+
+// 最简单的用法 - 只需指定项目键
+javaMavenCIBasic(projectKey: 'com.ecochain:my-project')
+
+// 或者指定一些自定义参数
+/*
+javaMavenCIBasic(
+    projectKey: 'com.ecochain:my-project',
+    src: 'src/main/java',
+    buildCmd: 'mvn clean package -DskipTests'
+)
+*/

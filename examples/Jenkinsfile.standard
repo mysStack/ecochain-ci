@@ -1,0 +1,17 @@
+// 标准配置示例
+// 适用于大多数项目，包含代码扫描和依赖扫描
+
+@Library('ecochain-ci') _
+
+// 使用标准配置
+javaMavenCIStandard(projectKey: 'com.ecochain:my-project')
+
+// 或者指定一些自定义参数
+/*
+javaMavenCIStandard(
+    projectKey: 'com.ecochain:my-project',
+    src: 'src/main/java',
+    depScanSeverity: 'CRITICAL',
+    notifyOnSuccess: true
+)
+*/

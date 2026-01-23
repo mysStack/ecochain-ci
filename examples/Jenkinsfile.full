@@ -1,0 +1,18 @@
+// 完整配置示例
+// 适用于需要全面配置的生产环境
+
+@Library('ecochain-ci') _
+
+// 使用完整配置
+javaMavenCIFull(projectKey: 'com.ecochain:my-project')
+
+// 或者指定一些自定义参数
+/*
+javaMavenCIFull(
+    projectKey: 'com.ecochain:my-project',
+    env: 'prod',
+    notifyEmail: 'devops@ecochain.com',
+    host: 'https://sonarqube.example.com',
+    login: credentials('sonar-token')
+)
+*/
