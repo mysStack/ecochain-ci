@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
   - name: maven
-    image: maven:3.9-eclipse-temurin-17
+    image: docker。1ms.run/library/maven:3.9-eclipse-temurin-17
     command:
     - cat
     tty: true
