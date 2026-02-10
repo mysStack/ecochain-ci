@@ -89,13 +89,10 @@ class FeishuNotifier extends BaseNotifier {
     def sendBuildStartNotification(Map buildInfo, Map cfg) {
         if (!isEnabled(cfg)) return
         
-        def message = buildMessageTemplate(
-            "🚀 开始构建 - ${buildInfo.projectName}",
-            buildStartContent(buildInfo),
-            buildInfo,
-            cfg
-        )
+        def title = org.ecochain.ci.MessageBuilder.buildTitle('started', buildInfo.projectName)
+        def content = org.ecochain.ci.MessageBuilder.buildStartContent(buildInfo, 'feishu')
         
+        def message = buildMessageTemplate(title, content, buildInfo, cfg)
         return sendNotification(message, cfg)
     }
     
@@ -103,13 +100,10 @@ class FeishuNotifier extends BaseNotifier {
     def sendBuildSuccessNotification(Map buildInfo, Map cfg) {
         if (!isEnabled(cfg)) return
         
-        def message = buildMessageTemplate(
-            "✅ 构建成功 - ${buildInfo.projectName}",
-            buildSuccessContent(buildInfo),
-            buildInfo,
-            cfg
-        )
+        def title = org.ecochain.ci.MessageBuilder.buildTitle('success', buildInfo.projectName)
+        def content = org.ecochain.ci.MessageBuilder.buildSuccessContent(buildInfo, 'feishu')
         
+        def message = buildMessageTemplate(title, content, buildInfo, cfg)
         return sendNotification(message, cfg)
     }
     
@@ -117,12 +111,10 @@ class FeishuNotifier extends BaseNotifier {
     def sendBuildFailureNotification(Map buildInfo, String errorMessage, Map cfg) {
         if (!isEnabled(cfg)) return
         
-        def message = buildMessageTemplate(
-            "❌ 构建失败 - ${buildInfo.projectName}",
-            buildFailureContent(buildInfo, errorMessage),
-            buildInfo,
-            cfg
-        )
+        def title = org.ecochain.ci.MessageBuilder.buildTitle('failure', buildInfo.projectName)
+        def content = org.ecochain.ci.MessageBuilder.buildFailureContent(buildInfo, errorMessage, 'feishu')
+        
+        def message = buildMessageTemplate(title, content, buildInfo, cfg)
         message.isAtAll = true
         
         return sendNotification(message, cfg)
@@ -132,13 +124,10 @@ class FeishuNotifier extends BaseNotifier {
     def sendBuildUnstableNotification(Map buildInfo, String unstableReason, Map cfg) {
         if (!isEnabled(cfg)) return
         
-        def message = buildMessageTemplate(
-            "⚠️ 构建不稳定 - ${buildInfo.projectName}",
-            buildUnstableContent(buildInfo, unstableReason),
-            buildInfo,
-            cfg
-        )
+        def title = org.ecochain.ci.MessageBuilder.buildTitle('unstable', buildInfo.projectName)
+        def content = org.ecochain.ci.MessageBuilder.buildUnstableContent(buildInfo, unstableReason, 'feishu')
         
+        def message = buildMessageTemplate(title, content, buildInfo, cfg)
         return sendNotification(message, cfg)
     }
     
