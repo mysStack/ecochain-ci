@@ -1,6 +1,138 @@
 package org.ecochain.ci
 
+/**
+ * 公共工具类
+ * 注意：此类中的方法需要在 Jenkins Pipeline 步骤上下文中调用
+ */
 class Utils {
+    
+    // 这些方法需要在 Jenkins Pipeline 步骤中调用
+    // 调用时确保有正确的步骤上下文（如：script.sh, script.echo）
+    
+    /**
+     * 获取项目名称（安全处理 projectKey）
+     */
+    static String getProjectName(String projectKey, String defaultName = '') {
+        try {
+            if (projectKey && projectKey.contains(':')) {
+                return projectKey.split(':')[1]
+            }
+            return defaultName ?: projectKey
+        } catch (Exception e) {
+            echo "获取项目名称失败，使用默认值: ${e.message}"
+            return defaultName ?: 'unknown'
+        }
+    }
+    
+    /**
+     * 安全执行操作，带重试机制
+     */
+    static def safeExecute(Closure operation, int maxRetries = 3, long delay = 5000) {
+        def lastException
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                return operation.call()
+            } catch (Exception e) {
+                lastException = e
+                echo "操作失败，重试 ${i + 1}/${maxRetries}: ${e.message}"
+                if (i < maxRetries - 1) {
+                    sleep(delay)
+                }
+            }
+        }
+        throw lastException
+    }
+    
+    /**
+     * 验证必需参数
+     */
+    static void validateRequiredParams(Map params, List requiredKeys) {
+        def missingKeys = requiredKeys.findAll { !params.containsKey(it) || params[it] == null }
+        if (missingKeys) {
+            error "缺少必需参数: ${missingKeys.join(', ')}"
+        }
+    }
+    
+    /**
+     * 获取默认配置模板
+     */
+    static Map getDefaultConfig(String configType = 'basic') {
+        def baseConfig = [
+            projectKey: '',
+            src: 'src/main/java',
+            buildVersion: "v${getTimestamp()}",
+            env: 'dev',
+            timeout: 60,
+            parallel: false,
+            dockerImage: 'maven:3.9-eclipse-temurin-17',
+            artifacts: '**/target/*.jar,**/target/*.war'
+        ]
+        
+        switch(configType) {
+            case 'basic':
+                return baseConfig + [
+                    enableTest: true,
+                    enableScan: false,
+                    enableDepScan: false,
+                    enableArchive: false,
+                    enableKaniko: false,
+                    testCmd: 'mvn test',
+                    buildCmd: 'mvn -DskipTests package -Dbuild.version=${env.BUILD_VERSION}',
+                    mvnOpts: '-Xmx512m'
+                ]
+            case 'standard':
+                return baseConfig + [
+                    enableTest: true,
+                    enableScan: true,
+                    enableDepScan: true,
+                    enableArchive: true,
+                    enableKaniko: false,
+                    testCmd: 'mvn clean test',
+                    buildCmd: 'mvn clean package -DskipTests -Dbuild.version=${env.BUILD_VERSION}',
+                    mvnOpts: '-Xmx1024m',
+                    depScanSeverity: 'HIGH,CRITICAL',
+                    depScanSkipDirs: ['target', '.git', '.idea'],
+                    projectVersion: '1.0.0',
+                    binaries: 'target/classes',
+                    exclusions: '**/test/**,**/generated/**',
+                    coverage: 'target/site/jacoco/jacoco.xml',
+                    sourceEncoding: 'UTF-8',
+                    javaVersion: '11'
+                ]
+            case 'full':
+                return baseConfig + [
+                    enableTest: true,
+                    enableScan: true,
+                    enableDepScan: true,
+                    enableArchive: true,
+                    enableKaniko: true,
+                    enableDingTalk: true,  // 完整配置默认启用钉钉通知
+                    testCmd: 'mvn clean test',
+                    buildCmd: 'mvn clean package -DskipTests -Dbuild.version=${env.BUILD_VERSION}',
+                    mvnOpts: '-Xmx1024m',
+                    depScanSeverity: 'HIGH,CRITICAL',
+                    depScanSkipDirs: ['target', '.git', '.idea'],
+                    notifyOnSuccess: true,
+                    notifyOnFailure: true,
+                    projectVersion: '1.0.0',
+                    binaries: 'target/classes',
+                    exclusions: '**/test/**,**/generated/**',
+                    coverage: 'target/site/jacoco/jacoco.xml',
+                    sourceEncoding: 'UTF-8',
+                    javaVersion: '11',
+                    kanikoDockerfile: 'Dockerfile',
+                    kanikoContextPath: '.',
+                    kanikoRegistry: 'registry.example.com',
+                    kanikoProject: 'default',
+                    kanikoCredentialsId: 'kaniko-credentials',
+                    // 钉钉通知配置
+                    dingtalkWebhook: '',  // 钉钉Webhook地址
+                    dingtalkAtMobiles: []  // 需要@的手机号列表
+                ]
+            default:
+                return baseConfig
+        }
+    }
     /**
      * 获取当前时间戳
      * @return 格式化的时间戳字符串 (yyyyMMddHHmmss)
@@ -97,6 +229,118 @@ class Utils {
             timestamp: getTimestamp(),
             version: getBuildVersion()
         ]
+    }
+    
+    /**
+     * 获取完整的构建信息（用于钉钉通知）
+     */
+    static Map getFullBuildInfo(Map cfg, String buildStatus = 'unknown', String failedStage = null) {
+        def buildInfo = getBuildInfo()
+        def buildUrl = System.getenv('BUILD_URL') ?: 'N/A'
+        
+        return buildInfo + [
+            projectName: cfg.projectName ?: getProjectName(cfg.projectKey),
+            projectKey: cfg.projectKey,
+            buildVersion: cfg.buildVersion ?: buildInfo.version,
+            env: cfg.env ?: 'dev',
+            buildStatus: buildStatus,
+            buildUrl: buildUrl,
+            failedStage: failedStage,
+            timestamp: new Date().format('yyyy-MM-dd HH:mm:ss'),
+            // 构建统计信息（需要在构建过程中收集）
+            testStatus: false,
+            scanStatus: false,
+            depScanStatus: false,
+            kanikoStatus: false,
+            coverage: 'N/A',
+            qualityGate: 'N/A',
+            vulnerabilities: 0,
+            duration: 'N/A'
+        ]
+    }
+    
+    /**
+     * 检查是否启用钉钉通知
+     */
+    static boolean isDingTalkEnabled() {
+        def webhookUrl = System.getenv('DINGTALK_WEBHOOK_URL')
+        return webhookUrl != null && !webhookUrl.trim().isEmpty()
+    }
+    
+    /**
+     * 获取需要@的手机号列表
+     */
+    static List getAtMobiles(Map cfg) {
+        def atMobiles = []
+        
+        // 从配置中获取
+        if (cfg.dingtalkAtMobiles instanceof List) {
+            atMobiles.addAll(cfg.dingtalkAtMobiles)
+        }
+        
+        // 从环境变量获取
+        def envAtMobiles = System.getenv('DINGTALK_AT_MOBILES')
+        if (envAtMobiles) {
+            atMobiles.addAll(envAtMobiles.split(',').collect { it.trim() })
+        }
+        
+        return atMobiles.unique()
+    }
+    
+    /**
+     * 获取完整的构建信息（用于钉钉通知）
+     */
+    static Map getFullBuildInfo(Map cfg, String buildStatus = 'unknown', String failedStage = null) {
+        def buildInfo = getBuildInfo()
+        def buildUrl = System.getenv('BUILD_URL') ?: 'N/A'
+        
+        return buildInfo + [
+            projectName: cfg.projectName ?: getProjectName(cfg.projectKey),
+            projectKey: cfg.projectKey,
+            buildVersion: cfg.buildVersion ?: buildInfo.version,
+            env: cfg.env ?: 'dev',
+            buildStatus: buildStatus,
+            buildUrl: buildUrl,
+            failedStage: failedStage,
+            timestamp: new Date().format('yyyy-MM-dd HH:mm:ss'),
+            // 构建统计信息（需要在构建过程中收集）
+            testStatus: false,
+            scanStatus: false,
+            depScanStatus: false,
+            kanikoStatus: false,
+            coverage: 'N/A',
+            qualityGate: 'N/A',
+            vulnerabilities: 0,
+            duration: 'N/A'
+        ]
+    }
+    
+    /**
+     * 检查是否启用钉钉通知
+     */
+    static boolean isDingTalkEnabled() {
+        def webhookUrl = System.getenv('DINGTALK_WEBHOOK_URL')
+        return webhookUrl != null && !webhookUrl.trim().isEmpty()
+    }
+    
+    /**
+     * 获取需要@的手机号列表
+     */
+    static List getAtMobiles(Map cfg) {
+        def atMobiles = []
+        
+        // 从配置中获取
+        if (cfg.dingtalkAtMobiles instanceof List) {
+            atMobiles.addAll(cfg.dingtalkAtMobiles)
+        }
+        
+        // 从环境变量获取
+        def envAtMobiles = System.getenv('DINGTALK_AT_MOBILES')
+        if (envAtMobiles) {
+            atMobiles.addAll(envAtMobiles.split(',').collect { it.trim() })
+        }
+        
+        return atMobiles.unique()
     }
 
     /**
