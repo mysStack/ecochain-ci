@@ -19,13 +19,14 @@ class Utils {
             }
             return defaultName ?: projectKey
         } catch (Exception e) {
-            echo "获取项目名称失败，使用默认值: ${e.message}"
+            // 静态方法中不能使用 echo，改为返回默认值
             return defaultName ?: 'unknown'
         }
     }
     
     /**
      * 安全执行操作，带重试机制
+     * 注意：此方法需要在 Pipeline 步骤上下文中调用
      */
     static def safeExecute(Closure operation, int maxRetries = 3, long delay = 5000) {
         def lastException
@@ -34,9 +35,10 @@ class Utils {
                 return operation.call()
             } catch (Exception e) {
                 lastException = e
-                echo "操作失败，重试 ${i + 1}/${maxRetries}: ${e.message}"
+                // 调用者需要自己处理日志输出
                 if (i < maxRetries - 1) {
-                    sleep(delay)
+                    // 静态方法中不能使用 sleep，需要调用者处理
+                    Thread.sleep(delay)
                 }
             }
         }
