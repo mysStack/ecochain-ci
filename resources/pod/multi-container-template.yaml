@@ -1,0 +1,46 @@
+# Multi-container Pod Template for Java Maven CI
+# Placeholders: MAVEN_IMAGE_PLACEHOLDER, KANIKO_IMAGE_PLACEHOLDER
+
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: maven
+    image: MAVEN_IMAGE_PLACEHOLDER
+    command: ["cat"]
+    tty: true
+    volumeMounts:
+    - name: workspace
+      mountPath: /home/jenkins/agent
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+  - name: kaniko
+    image: KANIKO_IMAGE_PLACEHOLDER
+    command: ["cat"]
+    tty: true
+    volumeMounts:
+    - name: workspace
+      mountPath: /workspace
+    - name: kaniko-secret
+      mountPath: /kaniko/.docker
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+  volumes:
+  - name: workspace
+    emptyDir: {}
+  - name: kaniko-secret
+    secret:
+      secretName: docker-registry-secret
+      items:
+      - key: .dockerconfigjson
+        path: config.json
