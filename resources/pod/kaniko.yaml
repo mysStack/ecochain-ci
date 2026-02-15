@@ -1,0 +1,27 @@
+# Kaniko Pod Configuration for Container Image Building
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:latest
+    args:
+    - --dockerfile=Dockerfile
+    - --context=dir:///workspace
+    - --destination=${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+    - --cache=true
+    - --cache-ttl=24h
+    volumeMounts:
+    - name: workspace
+      mountPath: /workspace
+    - name: kaniko-secret
+      mountPath: /kaniko/.docker
+  volumes:
+  - name: workspace
+    emptyDir: {}
+  - name: kaniko-secret
+    secret:
+      secretName: docker-registry-secret
+      items:
+      - key: .dockerconfigjson
+        path: config.json

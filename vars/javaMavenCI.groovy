@@ -6,7 +6,11 @@ def call(Closure body) {
         appName     : '',
         mavenCmd    : 'mvn -B clean package',
         enableScan  : false,
-        enableImage : false
+        enableImage : false,
+        imageName   : '',
+        imageTag    : 'latest',
+        registryUrl : '',
+        kanikoArgs  : '--cache=true --cache-ttl=24h'
     ]
 
     body.resolveStrategy = Closure.DELEGATE_FIRST
@@ -19,7 +23,37 @@ def call(Closure body) {
     pipeline {
         agent {
             kubernetes {
-                yaml libraryResource('pod/maven.yaml')
+                yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: maven
+    image: crpi-p97knjjid10efrly.cn-shanghai.personal.cr.aliyuncs.com/ecochain/maven:3.8-eclipse-temurin-8
+    command: ["cat"]
+    tty: true
+    volumeMounts:
+    - name: workspace
+      mountPath: /home/jenkins/agent
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:latest
+    command: ["cat"]
+    tty: true
+    volumeMounts:
+    - name: workspace
+      mountPath: /workspace
+    - name: kaniko-secret
+      mountPath: /kaniko/.docker
+  volumes:
+  - name: workspace
+    emptyDir: {}
+  - name: kaniko-secret
+    secret:
+      secretName: docker-registry-secret
+      items:
+      - key: .dockerconfigjson
+        path: config.json
+'''
             }
         }
 
@@ -60,7 +94,44 @@ def call(Closure body) {
                 }
                 steps {
                     script {
-                        logger.info("Image build enabled (placeholder)")
+                        logger.info("Start Kaniko image build for ${cfg.imageName}:${cfg.imageTag}")
+                        
+                        // 验证镜像构建参数
+                        if (!cfg.imageName) {
+                            error("Image name is required when enableImage is true")
+                        }
+                        
+                        if (!cfg.registryUrl) {
+                            error("Registry URL is required for Kaniko image building")
+                        }
+                        
+                        // 使用 Kaniko 构建镜像（只构建运行阶段）
+                        container('kaniko') {
+                            // 只复制构建产物和必要的运行文件到 Kaniko 工作目录
+                            sh '''
+                                echo "Copying build artifacts to Kaniko workspace..."
+                                # 复制构建产物
+                                cp -r /home/jenkins/agent/target/* /workspace/ || true
+                                # 复制 Dockerfile（应该只包含运行阶段）
+                                cp /home/jenkins/agent/Dockerfile /workspace/ || true
+                                echo "Files in workspace:"
+                                ls -la /workspace/
+                                echo "Dockerfile content:"
+                                cat /workspace/Dockerfile || echo "Dockerfile not found"
+                            '''
+                            
+                            // 执行 Kaniko 构建命令
+                            sh """
+                                echo "Starting Kaniko runtime image build for ${cfg.registryUrl}/${cfg.imageName}:${cfg.imageTag}"
+                                /kaniko/executor \
+                                    --dockerfile=Dockerfile \
+                                    --context=dir:///workspace \
+                                    --destination=${cfg.registryUrl}/${cfg.imageName}:${cfg.imageTag} \
+                                    ${cfg.kanikoArgs}
+                            """
+                        }
+                        
+                        logger.info("Kaniko image build completed successfully")
                     }
                 }
             }
